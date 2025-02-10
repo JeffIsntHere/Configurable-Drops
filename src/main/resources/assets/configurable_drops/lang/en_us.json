@@ -1,0 +1,5 @@
+{
+  "itemGroup.configurable_drops": "Example Mod Tab",
+  "block.configurable_drops.example_block": "Example Block",
+  "item.configurable_drops.example_item": "Example Item"
+}
