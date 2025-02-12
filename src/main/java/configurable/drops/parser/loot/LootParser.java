@@ -154,7 +154,7 @@ public class LootParser extends Parser
             }
             if(attackDamageAttribute != null)
             {
-                power *= attackDamageAttribute.getValue();
+                power *= attackDamageAttribute.getBaseValue();
                 divisor *= 3.0d;
             }
             if(attackSpeed != null)
