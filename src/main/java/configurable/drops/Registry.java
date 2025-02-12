@@ -2,6 +2,7 @@ package configurable.drops;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.BoolArgumentType;
+import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import configurable.drops.parser.loot.Loot;
 import configurable.drops.parser.loot.LootParser;
@@ -9,6 +10,7 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.commands.SummonCommand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.item.ItemEntity;
@@ -73,6 +75,11 @@ public class Registry
                 ConfigurableDrops.logger.info(">Quota: " + loot.quota);
                 ConfigurableDrops.logger.info(">Reducer: " + loot.reducer);
                 ConfigurableDrops.logger.info(">MinimumPower: " + loot.minimumPower);
+                ConfigurableDrops.logger.info(">Adder: " + loot.adder);
+                for(String string : loot.list)
+                {
+                    entity.sendSystemMessage(Component.literal("> " + string));
+                }
                 ConfigurableDrops.logger.info("");
             }
         }
@@ -89,6 +96,12 @@ public class Registry
                 entity.sendSystemMessage(Component.literal("§7>Quota: §f" + loot.quota));
                 entity.sendSystemMessage(Component.literal("§7>Reducer: §f" + loot.reducer));
                 entity.sendSystemMessage(Component.literal("§7>MinimumPower: §f" + loot.minimumPower));
+                entity.sendSystemMessage(Component.literal("§7>Adder: §f" + loot.adder));
+                entity.sendSystemMessage(Component.literal("§7>List: §f"));
+                for(String string : loot.list)
+                {
+                    entity.sendSystemMessage(Component.literal("§7>§f " + string));
+                }
                 entity.sendSystemMessage(Component.literal(""));
             }
         }
@@ -112,6 +125,24 @@ public class Registry
         }
         return 1;
     }
+    public static int dropAllLoot(CommandContext<CommandSourceStack> commandContext, final double power)
+    {
+        final Entity entity = commandContext.getSource().getEntity();
+        if(entity == null)
+        {
+            commandContext.getSource().sendFailure(Component.literal("command must be ran by an entity!"));
+        }
+        else
+        {
+            final Level level = entity.level();
+            final Vec3 location = entity.position();
+            for(Loot loot : LootParser.instance.loots)
+            {
+                loot.dropAtLocation(level, location, power);
+            }
+        }
+        return 1;
+    }
     public static void registerCommands(final CommandDispatcher<CommandSourceStack> commandDispatcher)
     {
         commandDispatcher.register(Commands.literal("configurableDrops")
@@ -120,7 +151,9 @@ public class Registry
                 .then(Commands.literal("dumpLoot").executes(commandContext -> Registry.dumpLoot(commandContext, false))
                         .then(Commands.argument("dumpData", BoolArgumentType.bool())
                                 .executes(commandContext -> Registry.dumpLoot(commandContext, BoolArgumentType.getBool(commandContext, "dumpData")))))
-                .then(Commands.literal("dropAllLoot").executes(Registry::dropAllLoot))
+                .then(Commands.literal("dropAllLoot").executes(Registry::dropAllLoot)
+                        .then(Commands.argument("power", DoubleArgumentType.doubleArg())
+                                .executes(commandContext -> Registry.dropAllLoot(commandContext, DoubleArgumentType.getDouble(commandContext, "power")))))
                 .then(Commands.literal("getPower")
                         .then(Commands.argument("targets", EntityArgument.entities())
                                 .executes(commandContext -> Registry.getPower(commandContext, EntityArgument.getEntities(commandContext, "targets")))

@@ -2,7 +2,6 @@ package configurable.drops;
 
 import com.mojang.logging.LogUtils;
 import configurable.drops.parser.loot.LootParser;
-import net.minecraft.world.entity.NeutralMob;
 import net.minecraft.world.entity.monster.Monster;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.bus.api.SubscribeEvent;

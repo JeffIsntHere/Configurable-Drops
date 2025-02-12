@@ -3,4 +3,6 @@
     quota:{}
     reducer:{}
     minimumPower:{}
+    adder:{}
+    list:{}
 }

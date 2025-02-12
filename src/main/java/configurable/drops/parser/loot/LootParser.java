@@ -1,9 +1,18 @@
 package configurable.drops.parser.loot;
 
+import com.mojang.brigadier.context.CommandContext;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import configurable.drops.ConfigurableDrops;
 import configurable.drops.parser.File;
 import configurable.drops.parser.Parser;
+import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.commands.arguments.ResourceArgument;
 import net.minecraft.commands.arguments.item.ItemParser;
+import net.minecraft.server.commands.SummonCommand;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
+import net.minecraft.world.entity.ai.attributes.AttributeMap;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
@@ -23,6 +32,9 @@ public class LootParser extends Parser
     protected double quota = 0.0d;
     protected double reducer = 1.0d;
     protected double minimumPower = 0;
+    protected double adder = 0;
+    protected final ArrayList<String> list = new ArrayList<>();
+    protected boolean hasList = false;
     @Override
     protected void process()
     {
@@ -32,6 +44,9 @@ public class LootParser extends Parser
             this.quota = 0.0d;
             this.reducer = 1.0d;
             this.minimumPower = 0;
+            this.adder = 0;
+            this.list.clear();
+            this.hasList = false;
             super.spinUntilOpen();
             super.parentCount++;
         }
@@ -42,7 +57,12 @@ public class LootParser extends Parser
             {
                 if(this.item != null)
                 {
-                    this.loots.add(new Loot(this.itemParser, this.item, this.quota, this.reducer, this.minimumPower));
+                    if(!this.hasList)
+                    {
+                        this.list.add("ALL");
+                    }
+                    this.loots.add(new Loot(this.itemParser, this.item, this.quota, this.reducer, this.minimumPower, this.adder));
+                    this.loots.getLast().list.addAll(this.list);
                 }
                 super.parentCount--;
             }
@@ -83,6 +103,22 @@ public class LootParser extends Parser
                     this.minimumPower = 0;
                 }
             }
+            else if(key == 'a')
+            {
+                try
+                {
+                    this.adder = Double.valueOf(super.parseValueToKey());
+                }
+                catch(NumberFormatException e)
+                {
+                    this.adder = 0;
+                }
+            }
+            else if(key == 'l')
+            {
+                this.hasList = true;
+                super.parseValueOrValueArrayToKeyArrayList(this.list);
+            }
         }
     }
     public void reload()
@@ -104,25 +140,72 @@ public class LootParser extends Parser
     {
         try
         {
-            final double power = ((float) livingEntity.getAttributeValue(Attributes.ATTACK_DAMAGE) + 3.0f) * (livingEntity.getMaxHealth() + Math.pow((float) livingEntity.getAttributeValue(Attributes.ARMOR_TOUGHNESS), 2.0f)
-                    * Math.sqrt((float) livingEntity.getAttributeValue(Attributes.MOVEMENT_SPEED) + (float) livingEntity.getAttributeValue(Attributes.MOVEMENT_EFFICIENCY))) / 120.0f;
-            return power;
+            final AttributeMap attributeMap = livingEntity.getAttributes();
+            final AttributeInstance armorToughness = attributeMap.getInstance(Attributes.ARMOR_TOUGHNESS);
+            final AttributeInstance attackDamageAttribute = attributeMap.getInstance(Attributes.ATTACK_DAMAGE);
+            final AttributeInstance attackSpeed = attributeMap.getInstance(Attributes.ATTACK_SPEED);
+            final AttributeInstance maxHealth = attributeMap.getInstance(Attributes.MAX_HEALTH);
+            final AttributeInstance movementSpeed = attributeMap.getInstance(Attributes.MOVEMENT_SPEED);
+            double power = 1.0d;
+            double divisor = 1.0d;
+            if(armorToughness != null)
+            {
+                power += armorToughness.getBaseValue();
+            }
+            if(attackDamageAttribute != null)
+            {
+                power *= attackDamageAttribute.getValue();
+                divisor *= 3.0d;
+            }
+            if(attackSpeed != null)
+            {
+                power *= attackSpeed.getBaseValue();
+            }
+            if(maxHealth != null)
+            {
+                power *= maxHealth.getBaseValue();
+                divisor *= 20.0d;
+            }
+            if(movementSpeed != null)
+            {
+                power *= movementSpeed.getBaseValue();
+                divisor *= 0.23000000417232513d;
+            }
+            return power / divisor;
         }
         catch(IllegalArgumentException illegalArgumentException)
         {
-            return 0;
+            return 0.0d;
         }
     }
     public void dropForLivingEntity(@NotNull final LivingEntity livingEntity)
     {
         final Level level = livingEntity.level();
         final Vec3 position = livingEntity.position();
-        //power =
-        //(attack damage + 3) * (hp + armor point^2) * sqrt(movement speed on land + movement speed on sea)
         final double power = LootParser.getPower(livingEntity);
         for(Loot loot : this.loots)
         {
-            loot.dropAtLocation(level, position, power);
+            final boolean all = !loot.list.isEmpty() && loot.list.getFirst().equals("ALL");
+            final String encodeId = livingEntity.getEncodeId();
+            ConfigurableDrops.logger.debug(encodeId);
+            for(String string : loot.list)
+            {
+                if(string.equals(encodeId))
+                {
+                    if(!all)
+                    {
+                        loot.dropAtLocation(level, position, power);
+                    }
+                    else
+                    {
+                        return;
+                    }
+                }
+            }
+            if(all)
+            {
+                loot.dropAtLocation(level, position, power);
+            }
         }
     }
 }

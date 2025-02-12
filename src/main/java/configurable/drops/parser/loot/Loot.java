@@ -11,6 +11,8 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.ArrayList;
+
 public class Loot
 {
     @NotNull
@@ -18,10 +20,13 @@ public class Loot
     public final double quota;
     public final double reducer;
     public final double minimumPower;
-    public Loot(final ItemParser itemParser, final String item, final double quota, final double reducer, final double minimumPower)
+    public final double adder;
+    public final ArrayList<String> list = new ArrayList<>();
+    public Loot(final ItemParser itemParser, final String item, final double quota, final double reducer, final double minimumPower, final double adder)
     {
         this.reducer = reducer;
         this.minimumPower = minimumPower;
+        this.adder = adder;
         if(item != null)
         {
             ItemStack itemStackFromString;
@@ -50,13 +55,13 @@ public class Loot
     public void dropAtLocation(final Level level, final Vec3 location, final double power)
     {
         //quota = chance * 1/required power
-        if(power < this.minimumPower)
+        if(power + this.adder < this.minimumPower)
         {
             return;
         }
         final RandomSource randomSource = level.getRandom();
         int amount = 0;
-        double quota = this.quota * power;
+        double quota = this.quota * power + this.adder;
         while(true)
         {
             final double nextDouble = randomSource.nextDouble();
